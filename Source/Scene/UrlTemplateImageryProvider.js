@@ -17,6 +17,7 @@ define([
         '../Core/loadXML',
         '../Core/Math',
         '../Core/Rectangle',
+        '../Core/Resource',
         '../Core/WebMercatorTilingScheme',
         '../ThirdParty/when',
         './ImageryProvider'
@@ -39,6 +40,7 @@ define([
         loadXML,
         CesiumMath,
         Rectangle,
+        Resource,
         WebMercatorTilingScheme,
         when,
         ImageryProvider) {
@@ -83,7 +85,7 @@ define([
      * @constructor
      *
      * @param {Promise.<Object>|Object} [options] Object with the following properties:
-     * @param {String} options.url  The URL template to use to request tiles.  It has the following keywords:
+     * @param {Resource|String} options.url  The URL template to use to request tiles.  It has the following keywords:
      * <ul>
      *     <li><code>{z}</code>: The level of the tile in the tiling scheme.  Level zero is the root of the quadtree pyramid.</li>
      *     <li><code>{x}</code>: The tile X coordinate in the tiling scheme, where 0 is the Westernmost tile.</li>
@@ -570,18 +572,29 @@ define([
     UrlTemplateImageryProvider.prototype.reinitialize = function(options) {
         var that = this;
         that._readyPromise = when(options).then(function(properties) {
+            var urlResource = properties.url;
             //>>includeStart('debug', pragmas.debug);
             if (!defined(properties)) {
                 throw new DeveloperError('options is required.');
               }
-            if (!defined(properties.url)) {
+            if (!defined(urlResource)) {
                 throw new DeveloperError('options.url is required.');
             }
             //>>includeEnd('debug');
+
+            if (typeof urlResource === 'string') {
+                urlResource = new Resource({baseUrl: urlResource});
+            }
+
+            var pickFeaturesUrl = properties.pickFeaturesUrl;
+            if (defined(pickFeaturesUrl) && typeof pickFeaturesUrl === 'string') {
+                pickFeaturesUrl = new Resource({baseUrl: pickFeaturesUrl});
+            }
+
             that.enablePickFeatures = defaultValue(properties.enablePickFeatures, that.enablePickFeatures);
-            that._url = properties.url;
+            that._url = urlResource;
             that._urlSchemeZeroPadding = defaultValue(properties.urlSchemeZeroPadding, that.urlSchemeZeroPadding);
-            that._pickFeaturesUrl = properties.pickFeaturesUrl;
+            that._pickFeaturesUrl = pickFeaturesUrl;
             that._proxy = properties.proxy;
             that._tileDiscardPolicy = properties.tileDiscardPolicy;
             that._getFeatureInfoFormats = properties.getFeatureInfoFormats;
@@ -679,8 +692,8 @@ define([
             throw new DeveloperError('requestImage must not be called before the imagery provider is ready.');
         }
         //>>includeEnd('debug');
-        var url = buildImageUrl(this, x, y, level);
-        return ImageryProvider.loadImage(this, url, request);
+        var resource = buildImageUrl(this, x, y, level, request);
+        return ImageryProvider.loadImage(this, resource);
     };
 
     /**
@@ -723,21 +736,18 @@ define([
             }
 
             var format = that._getFeatureInfoFormats[formatIndex];
-            var url = buildPickFeaturesUrl(that, x, y, level, longitude, latitude, format.format);
+            var resource = buildPickFeaturesUrl(that, x, y, level, longitude, latitude, format.format);
 
             ++formatIndex;
 
             if (format.type === 'json') {
-                return loadJson(url).then(format.callback).otherwise(doRequest);
+                return loadJson(resource).then(format.callback).otherwise(doRequest);
             } else if (format.type === 'xml') {
-                return loadXML(url).then(format.callback).otherwise(doRequest);
+                return loadXML(resource).then(format.callback).otherwise(doRequest);
             } else if (format.type === 'text' || format.type === 'html') {
-                return loadText(url).then(format.callback).otherwise(doRequest);
+                return loadText(resource).then(format.callback).otherwise(doRequest);
             }
-            return loadWithXhr({
-                url : url,
-                responseType : format.format
-            }).then(handleResponse.bind(undefined, format)).otherwise(doRequest);
+            return loadWithXhr(resource).then(handleResponse.bind(undefined, format)).otherwise(doRequest);
         }
 
         return doRequest();
@@ -748,13 +758,13 @@ define([
     var projectedScratchComputed = false;
     var projectedScratch = new Rectangle();
 
-    function buildImageUrl(imageryProvider, x, y, level) {
+    function buildImageUrl(imageryProvider, x, y, level, request) {
         degreesScratchComputed = false;
         projectedScratchComputed = false;
 
         return buildUrl(imageryProvider, imageryProvider._urlParts, function(partFunction) {
             return partFunction(imageryProvider, x, y, level);
-        });
+        }, request);
     }
 
     var ijScratchComputed = false;
@@ -772,7 +782,7 @@ define([
         });
     }
 
-    function buildUrl(imageryProvider, parts, partFunctionInvoker) {
+    function buildUrl(imageryProvider, parts, partFunctionInvoker, request) {
         var url = '';
 
         for (var i = 0; i < parts.length; ++i) {
@@ -784,18 +794,18 @@ define([
             }
         }
 
-        var proxy = imageryProvider._proxy;
-        if (defined(proxy)) {
-            url = proxy.getURL(url);
-        }
-
-        return url;
+        return imageryProvider._url.getDerivedResource({
+            baseUrl: url,
+            proxy: imageryProvider._proxy,
+            request: request
+        });
     }
 
-    function urlTemplateToParts(url, tags) {
-        if (!defined(url)) {
+    function urlTemplateToParts(urlResource, tags) {
+        if (!defined(urlResource)) {
             return undefined;
         }
+        var url = urlResource.getUrl();
 
         var parts = [];
         var nextIndex = 0;

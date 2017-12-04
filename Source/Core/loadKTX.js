@@ -36,9 +36,7 @@ define([
      *
      * @exports loadKTX
      *
-     * @param {String|ArrayBuffer} urlOrBuffer The URL of the binary data or an ArrayBuffer.
-     * @param {Object} [headers] HTTP headers to send with the requests.
-     * @param {Request} [request] The request object. Intended for internal use only.
+     * @param {Resource|ArrayBuffer} resourceOrBuffer The URL of the binary data or an ArrayBuffer.
      * @returns {Promise.<CompressedTextureBuffer>|undefined} A promise that will resolve to the requested data when loaded. Returns undefined if <code>request.throttle</code> is true and the request does not have high enough priority.
      *
      * @exception {RuntimeError} Invalid KTX file.
@@ -69,16 +67,16 @@ define([
      * @see {@link http://www.w3.org/TR/cors/|Cross-Origin Resource Sharing}
      * @see {@link http://wiki.commonjs.org/wiki/Promises/A|CommonJS Promises/A}
      */
-    function loadKTX(urlOrBuffer, headers, request) {
+    function loadKTX(resourceOrBuffer) {
         //>>includeStart('debug', pragmas.debug);
-        Check.defined('urlOrBuffer', urlOrBuffer);
+        Check.defined('resourceOrBuffer', resourceOrBuffer);
         //>>includeEnd('debug');
 
         var loadPromise;
-        if (urlOrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(urlOrBuffer)) {
-            loadPromise = when.resolve(urlOrBuffer);
+        if (resourceOrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(resresourceOrBufferurce)) {
+            loadPromise = when.resolve(resourceOrBuffer);
         } else {
-            loadPromise = loadArrayBuffer(urlOrBuffer, headers, request);
+            loadPromise = loadArrayBuffer(resourceOrBuffer);
         }
 
         if (!defined(loadPromise)) {

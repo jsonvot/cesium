@@ -25,11 +25,7 @@ define([
      *
      * @exports loadJson
      *
-     * @param {String} url The URL to request.
-     * @param {Object} [headers] HTTP headers to send with the request.
-     * 'Accept: application/json,&#42;&#47;&#42;;q=0.01' is added to the request headers automatically
-     * if not specified.
-     * @param {Request} [request] The request object. Intended for internal use only.
+     * @param {Resource} resource A Resource describing the request
      * @returns {Promise.<Object>|undefined} a promise that will resolve to the requested data when loaded. Returns undefined if <code>request.throttle</code> is true and the request does not have high enough priority.
      *
      *
@@ -44,13 +40,14 @@ define([
      * @see {@link http://www.w3.org/TR/cors/|Cross-Origin Resource Sharing}
      * @see {@link http://wiki.commonjs.org/wiki/Promises/A|CommonJS Promises/A}
      */
-    function loadJson(url, headers, request) {
+    function loadJson(resource) {
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(url)) {
-            throw new DeveloperError('url is required.');
+        if (!defined(resource)) {
+            throw new DeveloperError('resource is required.');
         }
         //>>includeEnd('debug');
 
+        var headers = resource.headers;
         if (!defined(headers)) {
             headers = defaultHeaders;
         } else if (!defined(headers.Accept)) {
@@ -58,8 +55,11 @@ define([
             headers = clone(headers);
             headers.Accept = defaultHeaders.Accept;
         }
+        resource = resource.getDerivedResource({
+            headers: headers
+        });
 
-        var textPromise = loadText(url, headers, request);
+        var textPromise = loadText(resource);
         if (!defined(textPromise)) {
             return undefined;
         }

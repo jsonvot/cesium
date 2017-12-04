@@ -12,9 +12,7 @@ define([
      *
      * @exports loadBlob
      *
-     * @param {String} url The URL of the data.
-     * @param {Object} [headers] HTTP headers to send with the requests.
-     * @param {Request} [request] The request object. Intended for internal use only.
+     * @param {Resource} resource A Resource describing the request
      * @returns {Promise.<Blob>|undefined} a promise that will resolve to the requested data when loaded. Returns undefined if <code>request.throttle</code> is true and the request does not have high enough priority.
      *
      * @example
@@ -28,13 +26,11 @@ define([
      * @see {@link http://www.w3.org/TR/cors/|Cross-Origin Resource Sharing}
      * @see {@link http://wiki.commonjs.org/wiki/Promises/A|CommonJS Promises/A}
      */
-    function loadBlob(url, headers, request) {
-        return loadWithXhr({
-            url : url,
-            responseType : 'blob',
-            headers : headers,
-            request : request
+    function loadBlob(resource) {
+        resource = resource.getDerivedResource({
+            responseType: 'blob'
         });
+        return loadWithXhr(resource);
     }
 
     return loadBlob;

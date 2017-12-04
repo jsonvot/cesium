@@ -59,12 +59,13 @@ define([
      * @see {@link http://www.w3.org/TR/cors/|Cross-Origin Resource Sharing}
      * @see {@link http://wiki.commonjs.org/wiki/Promises/A|CommonJS Promises/A}
      */
-    function loadImageViaBlob(url, request) {
+    function loadImageViaBlob(resource) {
+        var url = resource.getUrl();
         if (!xhrBlobSupported || isDataUri(url)) {
-            return loadImage(url, undefined, request);
+            return loadImage(resource);
         }
 
-        var blobPromise = loadBlob(url, undefined, request);
+        var blobPromise = loadBlob(resource);
         if (!defined(blobPromise)) {
             return undefined;
         }
@@ -74,8 +75,11 @@ define([
                 return;
             }
             var blobUrl = window.URL.createObjectURL(blob);
-
-            return loadImage(blobUrl, false).then(function(image) {
+            resource = resource.getDerivedResource({
+                baseUrl: blobUrl,
+                allowCrossOrigin: false
+            });
+            return loadImage(resource).then(function(image) {
                 image.blob = blob;
                 window.URL.revokeObjectURL(blobUrl);
                 return image;

@@ -30,14 +30,7 @@ define([
      *
      * @exports loadWithXhr
      *
-     * @param {Object} options Object with the following properties:
-     * @param {String} options.url The URL of the data.
-     * @param {String} [options.responseType] The type of response.  This controls the type of item returned.
-     * @param {String} [options.method='GET'] The HTTP method to use.
-     * @param {String} [options.data] The data to send with the request, if any.
-     * @param {Object} [options.headers] HTTP headers to send with the request, if any.
-     * @param {String} [options.overrideMimeType] Overrides the MIME type returned by the server.
-     * @param {Request} [options.request] The request object.
+     * @param {Resource} resource A Resource describing the request:
      * @returns {Promise.<Object>|undefined} a promise that will resolve to the requested data when loaded. Returns undefined if <code>request.throttle</code> is true and the request does not have high enough priority.
      *
      *
@@ -59,23 +52,20 @@ define([
      * @see {@link http://www.w3.org/TR/cors/|Cross-Origin Resource Sharing}
      * @see {@link http://wiki.commonjs.org/wiki/Promises/A|CommonJS Promises/A}
      */
-    function loadWithXhr(options) {
-        options = defaultValue(options, defaultValue.EMPTY_OBJECT);
-
+    function loadWithXhr(resource) {
         //>>includeStart('debug', pragmas.debug);
-        Check.defined('options.url', options.url);
+        Check.defined('resource', resource);
         //>>includeEnd('debug');
 
-        var url = options.url;
+        var url = resource.getUrl();
 
-        var responseType = options.responseType;
-        var method = defaultValue(options.method, 'GET');
-        var data = options.data;
-        var headers = options.headers;
-        var overrideMimeType = options.overrideMimeType;
-        url = defaultValue(url, options.url);
+        var responseType = resource.responseType;
+        var method = resource.method;
+        var data = resource.data;
+        var headers = resource.headers;
+        var overrideMimeType = resource.overrideMimeType;
 
-        var request = defined(options.request) ? options.request : new Request();
+        var request = defined(resource.request) ? resource.request : new Request();
         request.url = url;
         request.requestFunction = function() {
             var deferred = when.defer();

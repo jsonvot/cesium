@@ -1,6 +1,7 @@
 define([
         '../ThirdParty/Uri',
         '../ThirdParty/when',
+        './clone',
         './combine',
         './defaultValue',
         './defined',
@@ -12,6 +13,7 @@ define([
     ], function(
         Uri,
         when,
+        clone,
         combine,
         defaultValue,
         defined,
@@ -27,12 +29,8 @@ define([
      *
      * @exports loadJsonp
      *
-     * @param {String} url The URL to request.
-     * @param {Object} [options] Object with the following properties:
-     * @param {Object} [options.parameters] Any extra query parameters to append to the URL.
-     * @param {String} [options.callbackParameterName='callback'] The callback parameter name that the server expects.
-     * @param {Proxy} [options.proxy] A proxy to use for the request. This object is expected to have a getURL function which returns the proxied URL, if needed.
-     * @param {Request} [request] The request object. Intended for internal use only.
+     * @param {Resource} resource A resource describing the request
+     * @param {String} callbackParameterName The name of the callback parameter
      * @returns {Promise.<Object>|undefined} a promise that will resolve to the requested data when loaded. Returns undefined if <code>request.throttle</code> is true and the request does not have high enough priority.
      *
      *
@@ -46,14 +44,12 @@ define([
      *
      * @see {@link http://wiki.commonjs.org/wiki/Promises/A|CommonJS Promises/A}
      */
-    function loadJsonp(url, options, request) {
+    function loadJsonp(resource, callbackParameterName) {
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(url)) {
-            throw new DeveloperError('url is required.');
+        if (!defined(resource)) {
+            throw new DeveloperError('resource is required.');
         }
         //>>includeEnd('debug');
-
-        options = defaultValue(options, defaultValue.EMPTY_OBJECT);
 
         //generate a unique function name
         var functionName;
@@ -61,28 +57,22 @@ define([
             functionName = 'loadJsonp' + Math.random().toString().substring(2, 8);
         } while (defined(window[functionName]));
 
-        var uri = new Uri(url);
-
-        var queryOptions = queryToObject(defaultValue(uri.query, ''));
-
-        if (defined(options.parameters)) {
-            queryOptions = combine(options.parameters, queryOptions);
+        var queryOptions;
+        if (defined(resource.queryParameters)) {
+            queryOptions = clone(resource.queryParameters);
+        } else {
+            queryOptions = {};
         }
 
-        var callbackParameterName = defaultValue(options.callbackParameterName, 'callback');
+        callbackParameterName = defaultValue(callbackParameterName, 'callback');
         queryOptions[callbackParameterName] = functionName;
+        resource = resource.getDerivedResource({
+            queryParameters: queryOptions
+        });
 
-        uri.query = objectToQuery(queryOptions);
-
-        url = uri.toString();
-
-        var proxy = options.proxy;
-        if (defined(proxy)) {
-            url = proxy.getURL(url);
-        }
-
+        var request = resource.request;
         request = defined(request) ? request : new Request();
-        request.url = url;
+        request.url = resource.getUrl();
         request.requestFunction = function() {
             var deferred = when.defer();
 
@@ -97,7 +87,7 @@ define([
                 }
             };
 
-            loadJsonp.loadAndExecuteScript(url, functionName, deferred);
+            loadJsonp.loadAndExecuteScript(resource.getUrl(), functionName, deferred);
             return deferred.promise;
         };
 

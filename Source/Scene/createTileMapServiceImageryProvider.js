@@ -1,33 +1,35 @@
 define([
-        '../Core/Cartesian2',
-        '../Core/Cartographic',
-        '../Core/defaultValue',
-        '../Core/defined',
-        '../Core/DeveloperError',
-        '../Core/GeographicTilingScheme',
-        '../Core/joinUrls',
-        '../Core/loadXML',
-        '../Core/Rectangle',
-        '../Core/RuntimeError',
-        '../Core/TileProviderError',
-        '../Core/WebMercatorTilingScheme',
-        '../ThirdParty/when',
-        './UrlTemplateImageryProvider'
-    ], function(
-        Cartesian2,
-        Cartographic,
-        defaultValue,
-        defined,
-        DeveloperError,
-        GeographicTilingScheme,
-        joinUrls,
-        loadXML,
-        Rectangle,
-        RuntimeError,
-        TileProviderError,
-        WebMercatorTilingScheme,
-        when,
-        UrlTemplateImageryProvider) {
+    '../Core/Cartesian2',
+    '../Core/Cartographic',
+    '../Core/defaultValue',
+    '../Core/defined',
+    '../Core/DeveloperError',
+    '../Core/GeographicTilingScheme',
+    '../Core/joinUrls',
+    '../Core/loadXML',
+    '../Core/Rectangle',
+    '../Core/Resource',
+    '../Core/RuntimeError',
+    '../Core/TileProviderError',
+    '../Core/WebMercatorTilingScheme',
+    '../ThirdParty/when',
+    './UrlTemplateImageryProvider'
+], function(
+    Cartesian2,
+    Cartographic,
+    defaultValue,
+    defined,
+    DeveloperError,
+    GeographicTilingScheme,
+    joinUrls,
+    loadXML,
+    Rectangle,
+    Resource,
+    RuntimeError,
+    TileProviderError,
+    WebMercatorTilingScheme,
+    when,
+    UrlTemplateImageryProvider) {
     'use strict';
 
     /**
@@ -37,7 +39,7 @@ define([
      * @exports createTileMapServiceImageryProvider
      *
      * @param {Object} [options] Object with the following properties:
-     * @param {String} [options.url='.'] Path to image tiles on server.
+     * @param {Resource|String} [options.url='.'] Path to image tiles on server.
      * @param {String} [options.fileExtension='png'] The file extension for images on the server.
      * @param {Object} [options.proxy] A proxy to use for requests. This object is expected to have a getURL function which returns the proxied URL.
      * @param {Credit|String} [options.credit=''] A credit for the data source, which is displayed on the canvas.
@@ -86,18 +88,24 @@ define([
     function createTileMapServiceImageryProvider(options) {
         options = defaultValue(options, {});
 
+        var urlResource = options.url;
+
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(options.url)) {
+        if (!defined(urlResource)) {
             throw new DeveloperError('options.url is required.');
         }
         //>>includeEnd('debug');
 
-        var url = options.url;
+        if (typeof urlResource === 'string') {
+            urlResource = new Resource({baseUrl: urlResource});
+        }
 
         var deferred = when.defer();
         var imageryProvider = new UrlTemplateImageryProvider(deferred.promise);
 
         var metadataError;
+
+        var xmlResourceUrl = urlResource.getDerivedResource({filePath: 'tilemapresource.xml'});
 
         function metadataSuccess(xml) {
             var tileFormatRegex = /tileformat/i;
@@ -111,14 +119,14 @@ define([
 
             // Iterate XML Document nodes for properties
             var nodeList = xml.childNodes[0].childNodes;
-            for (var i = 0; i < nodeList.length; i++){
+            for (var i = 0; i < nodeList.length; i++) {
                 if (tileFormatRegex.test(nodeList.item(i).nodeName)) {
                     format = nodeList.item(i);
                 } else if (tileSetsRegex.test(nodeList.item(i).nodeName)) {
                     tilesets = nodeList.item(i); // Node list of TileSets
                     var tileSetNodes = nodeList.item(i).childNodes;
                     // Iterate the nodes to find all TileSets
-                    for(var j = 0; j < tileSetNodes.length; j++) {
+                    for (var j = 0; j < tileSetNodes.length; j++) {
                         if (tileSetRegex.test(tileSetNodes.item(j).nodeName)) {
                             // Add them to tilesets list
                             tilesetsList.push(tileSetNodes.item(j));
@@ -131,9 +139,9 @@ define([
 
             var message;
             if (!defined(tilesets) || !defined(bbox)) {
-                message = 'Unable to find expected tilesets or bbox attributes in ' + joinUrls(url, 'tilemapresource.xml') + '.';
+                message = 'Unable to find expected tilesets or bbox attributes in ' + xmlResourceUrl.getUrl() + '.';
                 metadataError = TileProviderError.handleError(metadataError, imageryProvider, imageryProvider.errorEvent, message, undefined, undefined, undefined, requestMetadata);
-                if(!metadataError.retry) {
+                if (!metadataError.retry) {
                     deferred.reject(new RuntimeError(message));
                 }
                 return;
@@ -149,13 +157,13 @@ define([
 
             if (!defined(tilingScheme)) {
                 if (tilingSchemeName === 'geodetic' || tilingSchemeName === 'global-geodetic') {
-                    tilingScheme = new GeographicTilingScheme({ ellipsoid : options.ellipsoid });
+                    tilingScheme = new GeographicTilingScheme({ellipsoid : options.ellipsoid});
                 } else if (tilingSchemeName === 'mercator' || tilingSchemeName === 'global-mercator') {
-                    tilingScheme = new WebMercatorTilingScheme({ ellipsoid : options.ellipsoid });
+                    tilingScheme = new WebMercatorTilingScheme({ellipsoid : options.ellipsoid});
                 } else {
-                    message = joinUrls(url, 'tilemapresource.xml') + 'specifies an unsupported profile attribute, ' + tilingSchemeName + '.';
+                    message = xmlResourceUrl.getUrl() + 'specifies an unsupported profile attribute, ' + tilingSchemeName + '.';
                     metadataError = TileProviderError.handleError(metadataError, imageryProvider, imageryProvider.errorEvent, message, undefined, undefined, undefined, requestMetadata);
-                    if(!metadataError.retry) {
+                    if (!metadataError.retry) {
                         deferred.reject(new RuntimeError(message));
                     }
                     return;
@@ -223,10 +231,10 @@ define([
                 minimumLevel = 0;
             }
 
-            var templateUrl = joinUrls(url, '{z}/{x}/{reverseY}.' + fileExtension);
+            var templateUrlResource = urlResource.getDerivedResource({filePath: '{z}/{x}/{reverseY}.' + fileExtension});
 
             deferred.resolve({
-                url : templateUrl,
+                url : templateUrlResource,
                 tilingScheme : tilingScheme,
                 rectangle : rectangle,
                 tileWidth : tileWidth,
@@ -235,7 +243,7 @@ define([
                 maximumLevel : maximumLevel,
                 proxy : options.proxy,
                 tileDiscardPolicy : options.tileDiscardPolicy,
-                credit: options.credit
+                credit : options.credit
             });
         }
 
@@ -246,13 +254,13 @@ define([
             var tileHeight = defaultValue(options.tileHeight, 256);
             var minimumLevel = defaultValue(options.minimumLevel, 0);
             var maximumLevel = options.maximumLevel;
-            var tilingScheme = defined(options.tilingScheme) ? options.tilingScheme : new WebMercatorTilingScheme({ ellipsoid : options.ellipsoid });
+            var tilingScheme = defined(options.tilingScheme) ? options.tilingScheme : new WebMercatorTilingScheme({ellipsoid : options.ellipsoid});
             var rectangle = defaultValue(options.rectangle, tilingScheme.rectangle);
 
-            var templateUrl = joinUrls(url, '{z}/{x}/{reverseY}.' + fileExtension);
+            var templateUrlResource = urlResource.getDerivedResource({filePath: '{z}/{x}/{reverseY}.' + fileExtension});
 
             deferred.resolve({
-                url : templateUrl,
+                url : templateUrlResource,
                 tilingScheme : tilingScheme,
                 rectangle : rectangle,
                 tileWidth : tileWidth,
@@ -261,18 +269,20 @@ define([
                 maximumLevel : maximumLevel,
                 proxy : options.proxy,
                 tileDiscardPolicy : options.tileDiscardPolicy,
-                credit: options.credit
+                credit : options.credit
             });
         }
 
         function requestMetadata() {
-            var resourceUrl = joinUrls(url, 'tilemapresource.xml');
+            var proxyResource = xmlResourceUrl;
             var proxy = options.proxy;
             if (defined(proxy)) {
-                resourceUrl = proxy.getURL(resourceUrl);
+                proxyResource = xmlResourceUrl.getDerivedResource({
+                    proxy: proxy
+                });
             }
             // Try to load remaining parameters from XML
-            loadXML(resourceUrl).then(metadataSuccess).otherwise(metadataFailure);
+            loadXML(proxyResource).then(metadataSuccess).otherwise(metadataFailure);
         }
 
         requestMetadata();

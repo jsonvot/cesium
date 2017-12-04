@@ -26,11 +26,7 @@ define([
      *
      * @exports loadImage
      *
-     * @param {String} url The source URL of the image.
-     * @param {Boolean} [allowCrossOrigin=true] Whether to request the image using Cross-Origin
-     *        Resource Sharing (CORS).  CORS is only actually used if the image URL is actually cross-origin.
-     *        Data URIs are never requested using CORS.
-     * @param {Request} [request] The request object. Intended for internal use only.
+     * @param {Resource} resource The source URL of the image.
      * @returns {Promise.<Image>|undefined} a promise that will resolve to the requested data when loaded. Returns undefined if <code>request.throttle</code> is true and the request does not have high enough priority.
      *
      *
@@ -50,20 +46,20 @@ define([
      * @see {@link http://www.w3.org/TR/cors/|Cross-Origin Resource Sharing}
      * @see {@link http://wiki.commonjs.org/wiki/Promises/A|CommonJS Promises/A}
      */
-    function loadImage(url, allowCrossOrigin, request) {
+    function loadImage(resource) {
         //>>includeStart('debug', pragmas.debug);
-        Check.defined('url', url);
+        Check.defined('resource', resource);
         //>>includeEnd('debug');
 
-        allowCrossOrigin = defaultValue(allowCrossOrigin, true);
-
+        var request = resource.request;
+        var url = resource.getUrl();
         request = defined(request) ? request : new Request();
         request.url = url;
         request.requestFunction = function() {
             var crossOrigin;
 
             // data URIs can't have allowCrossOrigin set.
-            if (isDataUri(url) || !allowCrossOrigin) {
+            if (isDataUri(url) || !resource.allowCrossOrigin) {
                 crossOrigin = false;
             } else {
                 crossOrigin = isCrossOriginUrl(url);

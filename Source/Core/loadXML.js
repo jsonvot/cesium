@@ -12,9 +12,7 @@ define([
      *
      * @exports loadXML
      *
-     * @param {String} url The URL to request.
-     * @param {Object} [headers] HTTP headers to send with the request.
-     * @param {Request} [request] The request object. Intended for internal use only.
+     * @param {Resource} resource The Resource describing the request.
      * @returns {Promise.<XMLDocument>|undefined} a promise that will resolve to the requested data when loaded. Returns undefined if <code>request.throttle</code> is true and the request does not have high enough priority.
      *
      *
@@ -32,14 +30,12 @@ define([
      * @see {@link http://www.w3.org/TR/cors/|Cross-Origin Resource Sharing}
      * @see {@link http://wiki.commonjs.org/wiki/Promises/A|CommonJS Promises/A}
      */
-    function loadXML(url, headers, request) {
-        return loadWithXhr({
-            url : url,
-            responseType : 'document',
-            headers : headers,
-            overrideMimeType : 'text/xml',
-            request : request
+    function loadXML(resource) {
+        resource = resource.getDerivedResource({
+            responseType: 'document',
+            overrideMimeType : 'text/xml'
         });
+        return loadWithXhr(resource);
     }
 
     return loadXML;

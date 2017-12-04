@@ -25,7 +25,7 @@ define([
      *
      * @exports loadCRN
      *
-     * @param {String|ArrayBuffer} urlOrBuffer The URL of the binary data or an ArrayBuffer.
+     * @param {Resource|ArrayBuffer} resourceOrBuffer The URL of the binary data or an ArrayBuffer.
      * @param {Object} [headers] HTTP headers to send with the requests.
      * @param {Request} [request] The request object. Intended for internal use only.
      * @returns {Promise.<CompressedTextureBuffer>|undefined} A promise that will resolve to the requested data when loaded. Returns undefined if <code>request.throttle</code> is true and the request does not have high enough priority.
@@ -48,18 +48,18 @@ define([
      * @see {@link http://www.w3.org/TR/cors/|Cross-Origin Resource Sharing}
      * @see {@link http://wiki.commonjs.org/wiki/Promises/A|CommonJS Promises/A}
      */
-    function loadCRN(urlOrBuffer, headers, request) {
+    function loadCRN(resourceOrBuffer, headers, request) {
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(urlOrBuffer)) {
-            throw new DeveloperError('urlOrBuffer is required.');
+        if (!defined(resourceOrBuffer)) {
+            throw new DeveloperError('resourceOrBuffer is required.');
         }
         //>>includeEnd('debug');
 
         var loadPromise;
-        if (urlOrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(urlOrBuffer)) {
-            loadPromise = when.resolve(urlOrBuffer);
+        if (resourceOrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(resourceOrBuffer)) {
+            loadPromise = when.resolve(resourceOrBuffer);
         } else {
-            loadPromise = loadArrayBuffer(urlOrBuffer, headers, request);
+            loadPromise = loadArrayBuffer(resourceOrBuffer);
         }
 
         if (!defined(loadPromise)) {
