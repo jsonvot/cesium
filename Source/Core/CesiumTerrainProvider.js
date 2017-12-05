@@ -18,6 +18,7 @@ define([
         './Math',
         './OrientedBoundingBox',
         './QuantizedMeshTerrainData',
+        './Resource',
         './RuntimeError',
         './TerrainProvider',
         './TileAvailability',
@@ -42,6 +43,7 @@ define([
         CesiumMath,
         OrientedBoundingBox,
         QuantizedMeshTerrainData,
+        Resource,
         RuntimeError,
         TerrainProvider,
         TileAvailability,
@@ -106,8 +108,16 @@ define([
             throw new DeveloperError('options.url is required.');
         }
         //>>includeEnd('debug');
+        var resource = options.url;
+        if (typeof url === 'string') {
+            resource = new Resource({url: resource});
+        }
+        if (defined(options.proxy)) {
+            //TODO deprecation
+            resource.proxy = options.proxy;
+        }
 
-        this._url = options.url;
+        this._url = resource;
         this._proxy = options.proxy;
 
         this._tilingScheme = new GeographicTilingScheme({
@@ -153,10 +163,7 @@ define([
         this._readyPromise = when.defer();
 
         var lastUrl = this._url;
-        var metadataUrl = joinUrls(this._url, 'layer.json');
-        if (defined(this._proxy)) {
-            metadataUrl = this._proxy.getURL(metadataUrl);
-        }
+        var metadataUrl = this._url.getDerivedResource({url: 'layer.json'});
 
         var that = this;
         var metadataError;
@@ -209,7 +216,7 @@ define([
             var tileUrlTemplates = data.tiles;
             for (var i = 0; i < tileUrlTemplates.length; ++i) {
                 var template = new Uri(tileUrlTemplates[i]);
-                var baseUri = new Uri(lastUrl);
+                var baseUri = new Uri(lastUrl.getUrl());
                 if (template.authority && !baseUri.authority) {
                     baseUri.authority = template.authority;
                     baseUri.scheme = template.scheme;
@@ -279,11 +286,10 @@ define([
                     console.log('A layer.json can\'t have a parentUrl if it does\'t have an available array.');
                     return when.resolve();
                 }
-                lastUrl = joinUrls(lastUrl, parentUrl);
-                metadataUrl = joinUrls(lastUrl, 'layer.json');
-                if (defined(that._proxy)) {
-                    metadataUrl = that._proxy.getURL(metadataUrl);
-                }
+                var parentMetdataUrl = lastUrl.getDerivedResource({url: parentUrl});
+                metadataUrl = parentMetdataUrl.getDerivedResource({
+                    url: 'layer.json'
+                });
                 var parentMetadata = loadJson(metadataUrl);
                 return when(parentMetadata, parseMetadataSuccess, parseMetadataFailure);
             }
@@ -292,7 +298,7 @@ define([
         }
 
         function parseMetadataFailure(data) {
-            var message = 'An error occurred while accessing ' + metadataUrl + '.';
+            var message = 'An error occurred while accessing ' + metadataUrl.getUrl() + '.';
             metadataError = TileProviderError.handleError(metadataError, that, that._errorEvent, message, undefined, undefined, undefined, requestMetadata);
         }
 
@@ -614,13 +620,6 @@ define([
 
         var tmsY = (yTiles - y - 1);
 
-        var url = urlTemplates[(x + tmsY + level) % urlTemplates.length].replace('{z}', level).replace('{x}', x).replace('{y}', tmsY);
-
-        var proxy = this._proxy;
-        if (defined(proxy)) {
-            url = proxy.getURL(url);
-        }
-
         var extensionList = [];
         if (this._requestVertexNormals && layerToUse.hasVertexNormals) {
             extensionList.push(layerToUse.littleEndianExtensionSize ? 'octvertexnormals' : 'vertexnormals');
@@ -629,7 +628,14 @@ define([
             extensionList.push('watermask');
         }
 
-        var promise = loadArrayBuffer(url, getRequestHeader(extensionList), request);
+        var resource = new Resource({
+            url: urlTemplates[(x + tmsY + level) % urlTemplates.length].replace('{z}', level).replace('{x}', x).replace('{y}', tmsY),
+            proxy: this._url.proxy,
+            request: request,
+            headers: getRequestHeader(extensionList)
+        });
+
+        var promise = loadArrayBuffer(resource);
 
         if (!defined(promise)) {
             return undefined;

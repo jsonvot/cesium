@@ -189,8 +189,8 @@ define([
         if (defined(contentHeader)) {
             hasEmptyContent = false;
             contentState = Cesium3DTileContentState.UNLOADED;
-            contentUrl = joinUrls(basePath, contentHeader.url);
-            serverKey = RequestScheduler.getServerKey(contentUrl);
+            contentUrl = basePath.getDerivedResource({url: contentHeader.url});
+            serverKey = RequestScheduler.getServerKey(contentUrl.getUrl());
         } else {
             content = new Empty3DTileContent(tileset, this);
             hasEmptyContent = true;
@@ -608,12 +608,10 @@ define([
             return false;
         }
 
-        var url = this._contentUrl;
+        var resource = this._contentUrl;
         var expired = this.contentExpired;
         if (expired) {
-            // Append a query parameter of the tile expiration date to prevent caching
-            var timestampQuery = '?expired=' + this.expireDate.toString();
-            url = joinUrls(url, timestampQuery, false);
+            resource.queryParameters.expired = this.expireDate.toString();
         }
 
         var request = new Request({
@@ -623,8 +621,9 @@ define([
             priorityFunction : createPriorityFunction(this),
             serverKey : this._serverKey
         });
+        resource.request = request;
 
-        var promise = loadArrayBuffer(url, undefined, request);
+        var promise = loadArrayBuffer(resource);
 
         if (!defined(promise)) {
             return false;
@@ -653,11 +652,11 @@ define([
             var content;
 
             if (defined(contentFactory)) {
-                content = contentFactory(tileset, that, that._contentUrl, arrayBuffer, 0);
+                content = contentFactory(tileset, that, that._contentUrl.getUrl(), arrayBuffer, 0);
                 that.hasRenderableContent = true;
             } else {
                 // The content may be json instead
-                content = Cesium3DTileContentFactory.json(tileset, that, that._contentUrl, arrayBuffer, 0);
+                content = Cesium3DTileContentFactory.json(tileset, that, that._contentUrl.getUrl(), arrayBuffer, 0);
                 that.hasTilesetContent = true;
             }
 

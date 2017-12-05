@@ -13,6 +13,7 @@ define([
         './loadArrayBuffer',
         './Math',
         './Request',
+        './Resource',
         './RuntimeError',
         './TaskProcessor'
     ], function(
@@ -30,6 +31,7 @@ define([
         loadArrayBuffer,
         CesiumMath,
         Request,
+        Resource,
         RuntimeError,
         TaskProcessor) {
     'use strict';
@@ -56,19 +58,27 @@ define([
      * @constructor
      *
      * @param {Object} options Object with the following properties:
-     * @param {String} options.url The url of the Google Earth Enterprise server hosting the imagery.
-     * @param {Proxy} [options.proxy] A proxy to use for requests. This object is
-     *        expected to have a getURL function which returns the proxied URL, if needed.
-     *
+     * @param {Resource|String} options.url The url of the Google Earth Enterprise server hosting the imagery.
+
      * @see GoogleEarthEnterpriseImageryProvider
      * @see GoogleEarthEnterpriseTerrainProvider
      *
      */
     function GoogleEarthEnterpriseMetadata(options) {
         options = defaultValue(options, defaultValue.EMPTY_OBJECT);
+        var resource = options.url;
+
         //>>includeStart('debug', pragmas.debug);
-        Check.typeOf.string('options.url', options.url);
+        Check.defined('options.url', resource);
         //>>includeEnd('debug');
+
+        if (typeof resource === 'string') {
+            resource = new Resource({url: resource});
+        }
+        if (defined(options.proxy)) {
+            //TODO deprecation
+            resource.proxy = options.proxy;
+        }
 
         /**
          * True if imagery is available.
@@ -120,8 +130,8 @@ define([
 
         this._quadPacketVersion = 1;
 
-        this._url = appendForwardSlash(options.url);
-        this._proxy = options.proxy;
+        this._url = resource;
+        this._proxy = options.proxy; //TODO get rid of proxy
 
         this._tileInfo = {};
         this._subtreePromises = {};
@@ -149,7 +159,7 @@ define([
          */
         url : {
             get : function() {
-                return this._url;
+                return this._url; //TODO what type should this return?
             }
         },
 
@@ -296,13 +306,9 @@ define([
     GoogleEarthEnterpriseMetadata.prototype.getQuadTreePacket = function(quadKey, version, request) {
         version = defaultValue(version, 1);
         quadKey = defaultValue(quadKey, '');
-        var url = getMetadataUrl(this, quadKey, version);
-        var proxy = this._proxy;
-        if (defined(proxy)) {
-            url = proxy.getURL(url);
-        }
+        var resource = getMetadataUrl(this, quadKey, version, request);
 
-        var promise = loadArrayBuffer(url, undefined, request);
+        var promise = loadArrayBuffer(resource);
 
         if (!defined(promise)) {
             return undefined; // Throttled
@@ -470,18 +476,25 @@ define([
         return this._tileInfo[quadkey];
     };
 
-    function getMetadataUrl(that, quadKey, version) {
-        return joinUrls(that._url, 'flatfile?q2-0' + quadKey + '-q.' + version.toString());
+    function getMetadataUrl(that, quadKey, version, request) {
+        var queryParams = {};
+        queryParams['q2-0' + quadKey + '-q.' + version.toString()] = '';
+        return that._url.getDerivedResource({
+            url: 'flatfile',
+            queryParameters: queryParams,
+            request: request
+        });
     }
 
     function requestDbRoot(that) {
-        var url = joinUrls(that._url, 'dbRoot.v5?output=proto');
-        var proxy = that._proxy;
-        if (defined(proxy)) {
-            url = proxy.getURL(url);
-        }
+        var resource = that._url.getDerivedResource({
+            url: 'dbRoot.v5',
+            queryParameters: {
+                output: 'proto'
+            }
+        });
 
-        var promise = loadArrayBuffer(url)
+        return loadArrayBuffer(resource)
             .then(function(buf) {
                 var encryptedDbRootProto = dbrootParser.EncryptedDbRootProto.decode(new Uint8Array(buf));
 
@@ -526,12 +539,9 @@ define([
             })
             .otherwise(function() {
                 // Just eat the error and use the default values.
-                console.log('Failed to retrieve ' + url + '. Using defaults.');
+                console.log('Failed to retrieve ' + resource.getUrl() + '. Using defaults.');
                 that.key = defaultKey;
             });
-
-
-        return promise;
     }
 
     return GoogleEarthEnterpriseMetadata;

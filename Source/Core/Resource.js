@@ -17,7 +17,7 @@ define([
         options = defaultValue(options, defaultValue.EMPTY_OBJECT);
 
         this.url = options.url;
-        this.queryParameters = options.queryParameters;
+        this.queryParameters = defaultValue(options.queryParameters, {});
         this.headers = options.headers;
         this.request = options.request;
         this.responseType = options.responseType;

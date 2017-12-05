@@ -102,23 +102,34 @@ define([
     function GoogleEarthEnterpriseImageryProvider(options) {
         options = defaultValue(options, defaultValue.EMPTY_OBJECT);
 
+        var resource = options.url;
+
         //>>includeStart('debug', pragmas.debug);
-        if (!(defined(options.url) || defined(options.metadata))) {
+        if (!(defined(resource) || defined(options.metadata))) {
             throw new DeveloperError('options.url or options.metadata is required.');
         }
         //>>includeEnd('debug');
+
+
+        if (defined(resource) && typeof resource === 'string') {
+            resource = new Resource({url: resource});
+        }
+
+        if (defined(options.proxy)) {
+            //TODO deprecation
+            resource.proxy = options.proxy;
+        }
 
         var metadata;
         if (defined(options.metadata)) {
             metadata = this._metadata = options.metadata;
         } else {
             metadata = this._metadata = new GoogleEarthEnterpriseMetadata({
-                url : options.url,
-                proxy : options.proxy
+                url : resource
             });
         }
         this._tileDiscardPolicy = options.tileDiscardPolicy;
-        this._proxy = defaultValue(options.proxy, this._metadata.proxy);
+        this._proxy = defaultValue(options.proxy, this._metadata.proxy); //TODO get rid of proxy
 
         this._tilingScheme = new GeographicTilingScheme({
             numberOfLevelZeroTilesX : 2,
@@ -169,7 +180,7 @@ define([
         /**
          * Gets the name of the Google Earth Enterprise server url hosting the imagery.
          * @memberof GoogleEarthEnterpriseImageryProvider.prototype
-         * @type {String}
+         * @type {Resource}
          * @readonly
          */
         url : {
@@ -523,14 +534,13 @@ define([
         var quadKey = GoogleEarthEnterpriseMetadata.tileXYToQuadKey(x, y, level);
         var version = info.imageryVersion;
         version = (defined(version) && version > 0) ? version : 1;
-        var imageUrl = imageryProvider.url + 'flatfile?f1-0' + quadKey + '-i.' + version.toString();
+        var queryParams = {};
+        queryParams['f1-0' + quadKey + '-i.' + version.toString()] = '';
 
-        var proxy = imageryProvider._proxy;
-        if (defined(proxy)) {
-            imageUrl = proxy.getURL(imageUrl);
-        }
-
-        return imageUrl;
+        return imageryProvider.url.getDerivedResource({
+            url:'flatfile',
+            queryParameters: queryParams
+        });
     }
 
     // Detects if a Uint8Array is a JPEG or PNG

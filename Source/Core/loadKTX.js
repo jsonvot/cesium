@@ -73,7 +73,7 @@ define([
         //>>includeEnd('debug');
 
         var loadPromise;
-        if (resourceOrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(resresourceOrBufferurce)) {
+        if (resourceOrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(resourceOrBufferurce)) {
             loadPromise = when.resolve(resourceOrBuffer);
         } else {
             loadPromise = loadArrayBuffer(resourceOrBuffer);

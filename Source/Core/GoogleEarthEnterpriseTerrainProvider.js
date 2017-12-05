@@ -17,6 +17,7 @@ define([
         './Request',
         './RequestState',
         './RequestType',
+        './Resource',
         './RuntimeError',
         './TaskProcessor',
         './TileProviderError'
@@ -39,6 +40,7 @@ define([
         Request,
         RequestState,
         RequestType,
+        Resource,
         RuntimeError,
         TaskProcessor,
         TileProviderError) {
@@ -99,10 +101,8 @@ define([
      * @constructor
      *
      * @param {Object} options Object with the following properties:
-     * @param {String} options.url The url of the Google Earth Enterprise server hosting the imagery.
+     * @param {Resource|String} options.url The url of the Google Earth Enterprise server hosting the imagery.
      * @param {GoogleEarthEnterpriseMetadata} options.metadata A metadata object that can be used to share metadata requests with a GoogleEarthEnterpriseImageryProvider.
-     * @param {Proxy} [options.proxy] A proxy to use for requests. This object is
-     *        expected to have a getURL function which returns the proxied URL, if needed.
      * @param {Ellipsoid} [options.ellipsoid] The ellipsoid.  If not specified, the WGS84 ellipsoid is used.
      * @param {Credit|String} [options.credit] A credit for the data source, which is displayed on the canvas.
      *
@@ -120,19 +120,31 @@ define([
     function GoogleEarthEnterpriseTerrainProvider(options) {
         options = defaultValue(options, {});
 
+        var resource = options.url;
+
         //>>includeStart('debug', pragmas.debug);
-        if (!(defined(options.url) || defined(options.metadata))) {
+        if (!(defined(resource) || defined(options.metadata))) {
             throw new DeveloperError('options.url or options.metadata is required.');
         }
         //>>includeEnd('debug');
+
+        if (typeof resource === 'string') {
+            resource = new Resource({
+                url: resource
+            });
+        }
+
+        if (defined(options.proxy)) {
+            //TODO deprecation
+            resource.proxy = options.proxy;
+        }
 
         var metadata;
         if (defined(options.metadata)) {
             metadata = this._metadata = options.metadata;
         } else {
             metadata = this._metadata = new GoogleEarthEnterpriseMetadata({
-                url : options.url,
-                proxy : options.proxy
+                url : resource
             });
         }
         this._proxy = defaultValue(options.proxy, this._metadata.proxy);
@@ -165,7 +177,7 @@ define([
         this._readyPromise = metadata.readyPromise
             .then(function(result) {
                 if (!metadata.terrainPresent) {
-                    var e = new RuntimeError('The server ' + metadata.url + ' doesn\'t have terrain');
+                    var e = new RuntimeError('The server ' + metadata.url.getUrl() + ' doesn\'t have terrain');
                     metadataError = TileProviderError.handleError(metadataError, that, that._errorEvent, e.message, undefined, undefined, undefined, e);
                     return when.reject(e);
                 }
@@ -437,7 +449,7 @@ define([
         // Load that terrain
         var terrainPromises = this._terrainPromises;
         var terrainRequests = this._terrainRequests;
-        var url = buildTerrainUrl(this, q, terrainVersion);
+        var resource = buildTerrainUrl(this, q, terrainVersion);
         var sharedPromise;
         var sharedRequest;
         if (defined(terrainPromises[q])) { // Already being loaded possibly from another child, so return existing promise
@@ -445,7 +457,8 @@ define([
             sharedRequest = terrainRequests[q];
         } else { // Create new request for terrain
             sharedRequest = request;
-            var requestPromise = loadArrayBuffer(url, undefined, sharedRequest);
+            resource.request = sharedRequest;
+            var requestPromise = loadArrayBuffer(resource);
 
             if (!defined(requestPromise)) {
                 return undefined; // Throttled
@@ -590,14 +603,12 @@ define([
     //
     function buildTerrainUrl(terrainProvider, quadKey, version) {
         version = (defined(version) && version > 0) ? version : 1;
-        var terrainUrl = terrainProvider.url + 'flatfile?f1c-0' + quadKey + '-t.' + version.toString();
-
-        var proxy = terrainProvider._proxy;
-        if (defined(proxy)) {
-            terrainUrl = proxy.getURL(terrainUrl);
-        }
-
-        return terrainUrl;
+        var queryParams = {};
+        queryParams['f1c-0' + quadKey + '-t.' + version.toString()] = '';
+        return terrainProvider.url.getDerivedResource({
+            url:  + 'flatfile',
+            queryParameters: queryParams
+        });
     }
 
     return GoogleEarthEnterpriseTerrainProvider;
