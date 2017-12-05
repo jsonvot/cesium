@@ -97,7 +97,7 @@ define([
         //>>includeEnd('debug');
 
         if (typeof urlResource === 'string') {
-            urlResource = new Resource({baseUrl: urlResource});
+            urlResource = new Resource({url: urlResource});
         }
 
         var deferred = when.defer();
@@ -105,7 +105,7 @@ define([
 
         var metadataError;
 
-        var xmlResourceUrl = urlResource.getDerivedResource({filePath: 'tilemapresource.xml'});
+        var xmlResourceUrl = urlResource.getDerivedResource({url: 'tilemapresource.xml'});
 
         function metadataSuccess(xml) {
             var tileFormatRegex = /tileformat/i;
@@ -231,7 +231,7 @@ define([
                 minimumLevel = 0;
             }
 
-            var templateUrlResource = urlResource.getDerivedResource({filePath: '{z}/{x}/{reverseY}.' + fileExtension});
+            var templateUrlResource = urlResource.getDerivedResource({url: '{z}/{x}/{reverseY}.' + fileExtension});
 
             deferred.resolve({
                 url : templateUrlResource,
@@ -257,7 +257,7 @@ define([
             var tilingScheme = defined(options.tilingScheme) ? options.tilingScheme : new WebMercatorTilingScheme({ellipsoid : options.ellipsoid});
             var rectangle = defaultValue(options.rectangle, tilingScheme.rectangle);
 
-            var templateUrlResource = urlResource.getDerivedResource({filePath: '{z}/{x}/{reverseY}.' + fileExtension});
+            var templateUrlResource = urlResource.getDerivedResource({url: '{z}/{x}/{reverseY}.' + fileExtension});
 
             deferred.resolve({
                 url : templateUrlResource,

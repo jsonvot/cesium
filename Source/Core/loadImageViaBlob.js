@@ -37,8 +37,7 @@ define([
      *
      * @exports loadImageViaBlob
      *
-     * @param {String} url The source URL of the image.
-     * @param {Request} [request] The request object. Intended for internal use only.
+     * @param {Resource} resource A resource describing the request
      * @returns {Promise.<Image>|undefined} a promise that will resolve to the requested data when loaded. Returns undefined if <code>request.throttle</code> is true and the request does not have high enough priority.
      *
      *
@@ -75,10 +74,9 @@ define([
                 return;
             }
             var blobUrl = window.URL.createObjectURL(blob);
-            resource = resource.getDerivedResource({
-                baseUrl: blobUrl,
-                allowCrossOrigin: false
-            });
+            resource = resource.clone();
+            resource.url = blobUrl;
+            resource.allowCrossOrigin = false;
             return loadImage(resource).then(function(image) {
                 image.blob = blob;
                 window.URL.revokeObjectURL(blobUrl);

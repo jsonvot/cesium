@@ -1,10 +1,12 @@
 define([
+    './combine',
     './defaultValue',
     './defined',
     './defineProperties',
     './joinUrls',
     './objectToQuery'
-], function(defaultValue,
+], function(combine,
+            defaultValue,
             defined,
             defineProperties,
             joinUrls,
@@ -14,8 +16,7 @@ define([
     function Resource(options) {
         options = defaultValue(options, defaultValue.EMPTY_OBJECT);
 
-        this.baseUrl = options.baseUrl;
-        this.filePath = options.filePath;
+        this.url = options.url;
         this.queryParameters = options.queryParameters;
         this.headers = options.headers;
         this.request = options.request;
@@ -34,17 +35,33 @@ define([
     Resource.prototype.getDerivedResource = function(options) {
         var resource = this.clone();
 
-        resource.baseUrl = defaultValue(options.baseUrl, resource.baseUrl);
-        resource.filePath = defaultValue(options.filePath, resource.filePath);
-        resource.queryParameters = defaultValue(options.queryParameters, resource.queryParameters);
-        resource.headers = defaultValue(options.headers, resource.headers);
-        resource.request = defaultValue(options.request, resource.request);
-        resource.responseType = defaultValue(options.responseType, resource.responseType);
-        resource.method = defaultValue(options.method, resource.method);
-        resource.data = defaultValue(options.data, resource.data);
-        resource.overrideMimeType = defaultValue(options.overrideMimeType, resource.overrideMimeType);
-        resource.proxy = defaultValue(options.proxy, resource.proxy);
-        resource.allowCrossOrigin = defaultValue(options.allowCrossOrigin, resource.allowCrossOrigin);
+        if (defined(options.url)) {
+            resource.url = joinUrls(resource.url, options.url);
+        }
+        if (defined(options.queryParameters)) {
+            resource.queryParameters = combine(options.queryParameters, resource.queryParameters);
+        }
+        if (defined(options.headers)) {
+            resource.headers = combine(options.headers, resource.headers);
+        }
+        if (defined(options.responseType)) {
+            resource.responseType = options.responseType;
+        }
+        if (defined(options.method)) {
+            resource.method = options.method;
+        }
+        if (defined(options.data)) {
+            resource.data = options.data;
+        }
+        if (defined(options.overrideMimeType)) {
+            resource.overrideMimeType = options.overrideMimeType;
+        }
+        if (defined(options.proxy)) {
+            resource.proxy = options.proxy;
+        }
+        if (defined(options.allowCrossOrigin)) {
+            resource.allowCrossOrigin = options.allowCrossOrigin;
+        }
 
         return resource;
     };
@@ -65,10 +82,7 @@ define([
     };
 
     Resource.prototype.getUrl = function() {
-        var url = this.baseUrl;
-        if (defined(this.filePath)) {
-            url = joinUrls(url, this.filePath);
-        }
+        var url = this.url;
         if (defined(this.queryParameters)) {
             url = joinUrls(url, objectToQuery(this.queryParameters));
         }
@@ -83,8 +97,7 @@ define([
             result = new Resource();
         }
 
-        result.baseUrl = this.baseUrl;
-        result.filePath = this.filePath;
+        result.url = this.url;
         result.queryParameters = this.queryParameters;
         result.headers = this.headers;
         result.request = this.request;

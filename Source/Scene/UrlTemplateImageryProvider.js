@@ -583,12 +583,12 @@ define([
             //>>includeEnd('debug');
 
             if (typeof urlResource === 'string') {
-                urlResource = new Resource({baseUrl: urlResource});
+                urlResource = new Resource({url: urlResource});
             }
 
             var pickFeaturesUrl = properties.pickFeaturesUrl;
             if (defined(pickFeaturesUrl) && typeof pickFeaturesUrl === 'string') {
-                pickFeaturesUrl = new Resource({baseUrl: pickFeaturesUrl});
+                pickFeaturesUrl = new Resource({url: pickFeaturesUrl});
             }
 
             that.enablePickFeatures = defaultValue(properties.enablePickFeatures, that.enablePickFeatures);
@@ -795,7 +795,7 @@ define([
         }
 
         return imageryProvider._url.getDerivedResource({
-            baseUrl: url,
+            url: url,
             proxy: imageryProvider._proxy,
             request: request
         });
