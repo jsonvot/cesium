@@ -35,6 +35,7 @@ define([
         '../Core/PrimitiveType',
         '../Core/Quaternion',
         '../Core/Queue',
+        '../Core/Resource',
         '../Core/RuntimeError',
         '../Core/Transforms',
         '../Core/WebGLConstants',
@@ -112,6 +113,7 @@ define([
         PrimitiveType,
         Quaternion,
         Queue,
+        Resource,
         RuntimeError,
         Transforms,
         WebGLConstants,
@@ -396,9 +398,16 @@ define([
         }
         setCachedGltf(this, cachedGltf);
 
-        this._basePath = defaultValue(options.basePath, '');
+        var basePath = options.basePath;
         var baseUri = getBaseUri(document.location.href);
-        this._baseUri = joinUrls(baseUri, this._basePath);
+        if (defined(basePath)) {
+            baseUri = joinUrls(baseUri, basePath);
+        } else {
+            basePath = '';
+        }
+
+        this._basePath = basePath;
+        this._baseUri = new Resource({url: baseUri});
 
         /**
          * Determines if the model primitive will be shown.
@@ -1176,7 +1185,16 @@ define([
         }
         //>>includeEnd('debug');
 
-        var url = options.url;
+        var resource = options.url;
+        if (typeof resource === 'string') {
+            resource = new Resource({url: resource});
+        }
+        if (defined(options.headers)) {
+            //TODO deprectation
+            resource.headers = options.headers;
+        }
+        var url = resource.getUrl();
+
         // If no cache key is provided, use the absolute URL, since two URLs with
         // different relative paths could point to the same model.
         var cacheKey = defaultValue(options.cacheKey, getAbsoluteUri(url));
@@ -1206,7 +1224,7 @@ define([
             setCachedGltf(model, cachedGltf);
             gltfCache[cacheKey] = cachedGltf;
 
-            loadArrayBuffer(url, options.headers).then(function(arrayBuffer) {
+            loadArrayBuffer(resource).then(function(arrayBuffer) {
                 var array = new Uint8Array(arrayBuffer);
                 if (containsGltfMagic(array)) {
                     // Load binary glTF
@@ -1418,9 +1436,9 @@ define([
                 if (defined(buffer.extras._pipeline.source)) {
                     loadResources.buffers[id] = buffer.extras._pipeline.source;
                 } else {
-                    var bufferPath = joinUrls(model._baseUri, buffer.uri);
+                    var bufferResource = model._baseUri.getDerivedResource({url: buffer.uri});
                     ++loadResources.pendingBufferLoads;
-                    loadArrayBuffer(bufferPath).then(bufferLoad(model, id)).otherwise(getFailedLoadFunction(model, 'buffer', bufferPath));
+                    loadArrayBuffer(bufferResource).then(bufferLoad(model, id)).otherwise(getFailedLoadFunction(model, 'buffer', bufferResource.getUrl()));
                 }
             }
         }
@@ -1495,8 +1513,8 @@ define([
                 };
             } else {
                 ++model._loadResources.pendingShaderLoads;
-                var shaderPath = joinUrls(model._baseUri, shader.uri);
-                loadText(shaderPath).then(shaderLoad(model, shader.type, id)).otherwise(getFailedLoadFunction(model, 'shader', shaderPath));
+                var shaderResource = model._baseUri.getDerivedResource({url: shader.uri});
+                loadText(shaderResource).then(shaderLoad(model, shader.type, id)).otherwise(getFailedLoadFunction(model, 'shader', shaderResource.getUrl()));
             }
         });
     }
@@ -1589,17 +1607,17 @@ define([
             } else {
                 ++model._loadResources.pendingTextureLoads;
                 uri = new Uri(uri);
-                var imagePath = joinUrls(model._baseUri, uri);
-
+                var imageResource = model._baseUri.getDerivedResource({url: uri});
+                var url = imageResource.getUrl();
                 var promise;
-                if (ktxRegex.test(imagePath)) {
-                    promise = loadKTX(imagePath);
-                } else if (crnRegex.test(imagePath)) {
-                    promise = loadCRN(imagePath);
+                if (ktxRegex.test(url)) {
+                    promise = loadKTX(imageResource);
+                } else if (crnRegex.test(url)) {
+                    promise = loadCRN(imageResource);
                 } else {
-                    promise = loadImage(imagePath);
+                    promise = loadImage(imageResource);
                 }
-                promise.then(imageLoad(model, id, imageId)).otherwise(getFailedLoadFunction(model, 'image', imagePath));
+                promise.then(imageLoad(model, id, imageId)).otherwise(getFailedLoadFunction(model, 'image', url));
             }
         });
     }

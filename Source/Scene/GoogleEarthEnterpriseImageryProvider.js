@@ -467,8 +467,8 @@ define([
             return invalidImage;
         }
         // Load the
-        var url = buildImageUrl(this, info, x, y, level);
-        var promise = loadArrayBuffer(url, undefined, request);
+        var resource = buildImageUrl(this, info, x, y, level, request);
+        var promise = loadArrayBuffer(resource);
         if (!defined(promise)) {
             return undefined; // Throttled
         }
@@ -519,7 +519,7 @@ define([
     //
     // Functions to handle imagery packets
     //
-    function buildImageUrl(imageryProvider, info, x, y, level) {
+    function buildImageUrl(imageryProvider, info, x, y, level, request) {
         var quadKey = GoogleEarthEnterpriseMetadata.tileXYToQuadKey(x, y, level);
         var version = info.imageryVersion;
         version = (defined(version) && version > 0) ? version : 1;
